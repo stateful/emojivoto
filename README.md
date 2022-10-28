@@ -17,56 +17,44 @@ The application is composed of the following 3 services:
 
 Deploy the application to Minikube using the Linkerd2 service mesh.
 
-1. Install the `linkerd` CLI
+#### Install the `linkerd` CLI
 
-    ```bash
-    curl https://run.linkerd.io/install | sh
-    ```
-
-1. Install Linkerd2
-
-    ```bash
-    linkerd install | kubectl apply -f -
-    ```
-
-1. View the dashboard!
-
-    ```bash
-    linkerd dashboard
-    ```
-
-1. Inject, Deploy, and Enjoy
-
-    ```bash
-    kubectl kustomize kustomize/deployment | \
-        linkerd inject - | \
-        kubectl apply -f -
-    ```
-
-1. Use the app!
-
-    ```bash
-    minikube -n emojivoto service web-svc
-    ```
-
-### In docker-compose
-
-It's also possible to run the app with docker-compose (without Linkerd2).
-
-Build and run:
-
-```bash
-make deploy-to-docker-compose
+```sh
+curl https://run.linkerd.io/install | sh
 ```
 
-The web app will be running on port 8080 of your docker host.
+#### Install Linkerd2
 
-### Via URL
+```sh
+linkerd install --crds | kubectl apply -f -
+linkerd install --set proxyInit.runAsRoot=true | kubectl apply -f -
+```
 
-To deploy standalone to an existing cluster:
+#### View the dashboard!
 
-```bash
-kubectl apply -k github.com/BuoyantIO/emojivoto/kustomize/deployment
+```sh
+linkerd viz install | kubectl apply -f - # install the on-cluster metrics stack
+linkerd viz dashboard --verbose
+```
+
+#### Inject, Deploy, and Enjoy
+
+```sh
+kubectl kustomize kustomize/deployment | linkerd inject - | kubectl apply -f -
+```
+
+#### Use the app!
+
+Port forward to service:
+
+```sh { background=true }
+kubectl port-forward services/web-svc 3000:80 -n emojivoto
+```
+
+Open application:
+
+```sh
+open http://localhost:3000
 ```
 
 ### Generating some traffic
@@ -82,8 +70,8 @@ been deployed and will start sending traffic to the vote endpoint.
 
 If you'd like to run the bot manually:
 
-```bash
-export WEB_HOST=localhost:8080 # replace with your web location
+```sh
+export WEB_HOST=localhost:3000
 go run emojivoto-web/cmd/vote-bot/main.go
 ```
 
@@ -92,14 +80,14 @@ go run emojivoto-web/cmd/vote-bot/main.go
 Building requires that you have protoc-gen-go v1.27.1 and
 protoc-gen-go-grpc v1.1.0 on your path. These can be installed by running:
 
-```bash
+```sh
 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.27.1
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1.0
 ```
 
 Then you can set up proto files and build apps by running:
 
-```bash
+```sh
 make build
 ```
 
@@ -110,7 +98,7 @@ To build and push multi-arch docker images:
 1. Update the tag name in `common.mk`
 1. Create the Buildx builder instance
 
-    ```bash
+    ```sh
     docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
     docker buildx create --name=multiarch-builder --driver=docker-container --use
     docker buildx inspect multiarch-builder --bootstrap
@@ -118,7 +106,7 @@ To build and push multi-arch docker images:
 
 1. Build & push the multi-arch docker images to hub.docker.com
 
-    ```bash
+    ```sh
     docker login
     make multi-arch
     ```
@@ -132,7 +120,7 @@ To build and push multi-arch docker images:
 
 1. Distribute to the Linkerd website repo
 
-    ```bash
+    ```sh
     kubectl kustomize kustomize/deployment  > ../website/run.linkerd.io/public/emojivoto.yml
     kubectl kustomize kustomize/daemonset   > ../website/run.linkerd.io/public/emojivoto-daemonset.yml
     kubectl kustomize kustomize/statefulset > ../website/run.linkerd.io/public/emojivoto-statefulset.yml
@@ -153,19 +141,19 @@ Use the following to run the emojivoto go services and develop on the frontend.
 
 Start the voting service
 
-```bash
+```sh
 GRPC_PORT=8081 go run emojivoto-voting-svc/cmd/server.go
 ```
 
 [In a separate terminal window] Start the emoji service
 
-```bash
+```sh
 GRPC_PORT=8082 go run emojivoto-emoji-svc/cmd/server.go
 ```
 
 [In a separate terminal window] Bundle the frontend assets
 
-```bash
+```sh
 cd emojivoto-web/webapp
 yarn install
 yarn webpack # one time asset-bundling OR
@@ -174,7 +162,7 @@ yarn webpack-dev-server --port 8083 # bundle/serve reloading assets
 
 [In a separate terminal window] Start the web service
 
-```bash
+```sh
 export WEB_PORT=8080
 export VOTINGSVC_HOST=localhost:8081
 export EMOJISVC_HOST=localhost:8082
@@ -191,14 +179,14 @@ go run emojivoto-web/cmd/server.go
 
 [Optional] Start the vote bot for automatic traffic generation.
 
-```bash
+```sh
 export WEB_HOST=localhost:8080
 go run emojivoto-web/cmd/vote-bot/main.go
 ```
 
 View emojivoto
 
-```bash
+```sh
 open http://localhost:8080
 ```
 
@@ -247,7 +235,7 @@ The `web-svc` deployment of emojivoto is a React application that is hosted by a
 Go server. We can use [`linkerd profile auto creation`](https://linkerd.io/2/tasks/setting-up-service-profiles/#auto-creation)
 to generate the `ServiceProfile` resource for the web-svc with this command:
 
-```bash
+```sh
 linkerd profile -n emojivoto web-svc --tap deploy/web --tap-duration 10s | \
    kubectl apply -f -
 ```
@@ -256,7 +244,7 @@ Now that the service profiles are generated for all the services, you can
 observe the per-route metrics for each service on the [Linkerd Dashboard](https://linkerd.io/2/features/dashboard/)
 or with the `linkerd routes` command
 
-```bash
+```sh
 linkerd -n emojivoto routes deploy/web-svc --to svc/emoji-svc
 ```
 ## License
